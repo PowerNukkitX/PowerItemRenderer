@@ -9,6 +9,7 @@ import java.awt.*;
 
 public final class ColorUtil {
     public static final Vector4f TRANSPARENT_VECTOR_FLOAT = new Vector4f(0, 0, 0, 0);
+    public static final int TRANSPARENT_INT = new Color(0, 0, 0, 0).getRGB();
 
     private ColorUtil() {
         throw new UnsupportedOperationException();

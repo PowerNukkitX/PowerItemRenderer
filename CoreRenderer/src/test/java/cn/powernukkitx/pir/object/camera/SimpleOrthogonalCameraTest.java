@@ -1,6 +1,7 @@
 package cn.powernukkitx.pir.object.camera;
 
 import cn.powernukkitx.pir.object.geometry.Cube;
+import cn.powernukkitx.pir.object.geometry.Cuboid;
 import cn.powernukkitx.pir.object.geometry.Triangle;
 import cn.powernukkitx.pir.object.light.AmbientLight;
 import cn.powernukkitx.pir.object.light.DirectionalLight;
@@ -23,6 +24,7 @@ public class SimpleOrthogonalCameraTest {
     Scene scene1WithoutTexture;
     Scene scene1WithTexture;
     Scene scene2WithTexture;
+    Scene scene3WithTexture;
     RayTraceWorker worker;
 
     @BeforeEach
@@ -66,6 +68,21 @@ public class SimpleOrthogonalCameraTest {
             tmpScene.add(new AmbientLight(0.1f));
             tmpScene.add(new DirectionalLight(-1.5f, -1f, -2.25f, 0.63f));
             scene2WithTexture = tmpScene.freeze();
+        }
+        if (scene3WithTexture == null) {
+            var tmpScene = new SimpleScene();
+            tmpScene.add(new Cuboid(0, 0, 0, 1.2f, 1f, 0.4f, ImageIO.read(Objects.requireNonNull(SimpleOrthogonalCameraTest.class
+                    .getResourceAsStream("/textures/leaves.png"))), new Cuboid.UVDetail[]{
+                    new Cuboid.UVDetail(0, 0, 16, 16),
+                    new Cuboid.UVDetail(0, 0, 16, 16),
+                    new Cuboid.UVDetail(0, 0, 16, 16),
+                    new Cuboid.UVDetail(0, 0, 16, 16),
+                    new Cuboid.UVDetail(0, 0, 16, 16),
+                    new Cuboid.UVDetail(0, 0, 16, 16)
+            }));
+            tmpScene.add(new AmbientLight(0.1f));
+            tmpScene.add(new DirectionalLight(-1.5f, -1f, -2.25f, 0.63f));
+            scene3WithTexture = tmpScene.freeze();
         }
         if (worker == null) {
             worker = new SimpleRayTraceWorker();
@@ -133,6 +150,24 @@ public class SimpleOrthogonalCameraTest {
         }
         ImageIO.write((RenderedImage) result, "png", file);
     }
+
+    @Test
+    public void test5() throws IOException {
+        var fuzzyUp = new Vector3f(0, 0, 1);
+        var direction = new Vector3f(-1f, -1f, -1f / 1.27f).normalize();
+        var camera = new SimpleOrthogonalCamera(new Vector3f(4.01f, 4f, 4f / 1.27f),
+                direction,
+                512, 512, 1.62f, 1.61f,
+                direction.cross(fuzzyUp.cross(direction), new Vector3f()).normalize()
+        );
+        var result = camera.render(scene3WithTexture, worker);
+        var file = new File("target", "scene3_texture_1.png");
+        if (file.exists()) {
+            file.delete();
+        }
+        ImageIO.write((RenderedImage) result, "png", file);
+    }
+
 
     @Test
     public void test4Performance() {

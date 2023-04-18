@@ -75,4 +75,35 @@ public final class ImageUtil {
     public static int @NotNull [] centralSymmetry(int[] pixels, @NotNull Vector2i size) {
         return centralSymmetry(pixels, size.x, size.y);
     }
+
+    record SliceCacheKey(
+            int[] pixels,
+            int x,
+            int y,
+            int w,
+            int h
+    ) {
+    }
+
+    private static final ConcurrentHashMap<SliceCacheKey, int[]> SLICE_CACHE = new ConcurrentHashMap<>();
+
+    public static int @NotNull [] slice(@NotNull BufferedImage texture, int x, int y, int w, int h) {
+        return slice(getPixels(texture), texture.getWidth(), texture.getHeight(), x, y, w, h);
+    }
+
+    public static int @NotNull [] slice(int[] pixels, int width, int height, int x, int y, int w, int h) {
+        return SLICE_CACHE.computeIfAbsent(new SliceCacheKey(pixels, x, y, w, h), key -> {
+            int[] result = new int[w * h];
+            for (int i = 0; i < w; i++) {
+                for (int j = 0; j < h; j++) {
+                    if (i + x >= width || j + y >= height) {
+                        result[i * h + j] = ColorUtil.TRANSPARENT_INT;
+                    } else {
+                        result[i * h + j] = pixels[(i + x) * height + (j + y)];
+                    }
+                }
+            }
+            return result;
+        });
+    }
 }
