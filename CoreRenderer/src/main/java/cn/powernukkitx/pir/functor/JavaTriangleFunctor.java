@@ -72,6 +72,14 @@ public class JavaTriangleFunctor implements TriangleFunctor {
     }
 
     @Override
+    public @NotNull Vector3f intersectsSingleSided(@NotNull Matrix3f triangle, @NotNull Vector3f normalVector, @NotNull Vector3f pos, @NotNull Vector3f direction, @NotNull Vector3f ref) {
+        if (normalVector.dot(direction) > MathUtil.EPSILON_NEG) {
+            return ref.set(Float.NaN);
+        }
+        return intersects(triangle, pos, direction, ref);
+    }
+
+    @Override
     public @NotNull Vector3f normalVector(@NotNull Matrix3f triangle, @NotNull Vector3f ref) {
         var tmp = new Vector3f();
         return ref.set(pos2(triangle, tmp)).sub(pos1(triangle, tmp)).cross(pos3(triangle).sub(pos1(triangle, tmp))).normalize();

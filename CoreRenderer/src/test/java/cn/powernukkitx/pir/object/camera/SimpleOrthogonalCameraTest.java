@@ -72,7 +72,7 @@ public class SimpleOrthogonalCameraTest {
         if (scene3WithTexture == null) {
             var tmpScene = new SimpleScene();
             tmpScene.add(new Cuboid(0, 0, 0, 1.2f, 1f, 0.4f, ImageIO.read(Objects.requireNonNull(SimpleOrthogonalCameraTest.class
-                    .getResourceAsStream("/textures/leaves.png"))), new Cuboid.UVDetail[]{
+                    .getResourceAsStream("/textures/plank.png"))), new Cuboid.UVDetail[]{
                     new Cuboid.UVDetail(0, 0, 16, 16),
                     new Cuboid.UVDetail(0, 0, 16, 16),
                     new Cuboid.UVDetail(0, 0, 16, 16),

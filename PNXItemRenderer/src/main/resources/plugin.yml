@@ -1,0 +1,13 @@
+name: PowerItemRenderer
+main: cn.powernukkitx.pir.PNXPluginMain
+version: "0.0.1"
+api: ["1.0.14"]
+load: POSTWORLD
+author: PowerNukkitX dev team
+authors: ["Superice666"]
+description: An item renderer plugin for PowerNukkitX
+
+permissions:
+  pri.all:
+    description: "Allows the user to control all pir commands"
+    default: op

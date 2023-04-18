@@ -76,6 +76,46 @@ public final class ImageUtil {
         return centralSymmetry(pixels, size.x, size.y);
     }
 
+    private static final ConcurrentHashMap<int[], int[]> LEFT_RIGHT_MIRROR_CACHE = new ConcurrentHashMap<>();
+
+    @Contract(pure = true)
+    public static int @NotNull [] leftRightMirror(int[] pixels, int width, int height) {
+        return LEFT_RIGHT_MIRROR_CACHE.computeIfAbsent(pixels, p -> {
+            int[] result = new int[pixels.length];
+            for (int i = 0; i < width; i++) {
+                for (int j = 0; j < height; j++) {
+                    result[i + j * width] = pixels[(width - i - 1) + j * width];
+                }
+            }
+            return result;
+        });
+    }
+
+    @Contract(pure = true)
+    public static int @NotNull [] leftRightMirror(int[] pixels, @NotNull Vector2i size) {
+        return leftRightMirror(pixels, size.x, size.y);
+    }
+
+    private static final ConcurrentHashMap<int[], int[]> TOP_BOTTOM_MIRROR_CACHE = new ConcurrentHashMap<>();
+
+    @Contract(pure = true)
+    public static int @NotNull [] topBottomMirror(int[] pixels, int width, int height) {
+        return TOP_BOTTOM_MIRROR_CACHE.computeIfAbsent(pixels, p -> {
+            int[] result = new int[pixels.length];
+            for (int i = 0; i < width; i++) {
+                for (int j = 0; j < height; j++) {
+                    result[i + j * width] = pixels[i + (height - j - 1) * width];
+                }
+            }
+            return result;
+        });
+    }
+
+    @Contract(pure = true)
+    public static int @NotNull [] topBottomMirror(int[] pixels, @NotNull Vector2i size) {
+        return topBottomMirror(pixels, size.x, size.y);
+    }
+
     record SliceCacheKey(
             int[] pixels,
             int x,
@@ -97,13 +137,18 @@ public final class ImageUtil {
             for (int i = 0; i < w; i++) {
                 for (int j = 0; j < h; j++) {
                     if (i + x >= width || j + y >= height) {
-                        result[i * h + j] = ColorUtil.TRANSPARENT_INT;
+                        result[i + j * w] = ColorUtil.TRANSPARENT_INT;
                     } else {
-                        result[i * h + j] = pixels[(i + x) * height + (j + y)];
+                        result[i + j * w] = pixels[(i + x) + (j + y) * width];
                     }
                 }
             }
             return result;
         });
+    }
+
+    @Contract(pure = true)
+    public static int @NotNull [] doNothing(int[] pixels, @NotNull Vector2i size) {
+        return pixels;
     }
 }

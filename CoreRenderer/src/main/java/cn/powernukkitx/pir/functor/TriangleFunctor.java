@@ -110,10 +110,77 @@ public interface TriangleFunctor extends ShapeFunctor {
     default void intersects(@NotNull Matrix3f @NotNull [] triangle,
                             @NotNull Vector3f @NotNull [] pos,
                             @NotNull Vector3f @NotNull [] direction,
-                            @NotNull Vector3f @NotNull [] @NotNull[] refBuffer) {
+                            @NotNull Vector3f @NotNull [] @NotNull [] refBuffer) {
         for (int i = 0, len1 = pos.length; i < len1; i++) {
             for (int j = 0, len2 = triangle.length; j < len2; j++) {
                 intersects(triangle[j], pos[i], direction[i], refBuffer[i][j]);
+            }
+        }
+    }
+
+    /**
+     * find the intersection pos with given ray
+     *
+     * @param triangle  the triangle
+     * @param pos       the result pos
+     * @param direction the direction of the ray
+     * @return the position of the intersection, {@link cn.powernukkitx.pir.util.MathUtil#INVALID_VEC3F} if no intersection
+     */
+    @NotNull
+    Vector3f intersectsSingleSided(@NotNull Matrix3f triangle, @NotNull Vector3f normalVector, @NotNull Vector3f pos,
+                                   @NotNull Vector3f direction, @NotNull Vector3f ref);
+
+    /**
+     * find the intersections poses with given rays
+     *
+     * @param pos       the result pos
+     * @param direction the direction of the ray
+     * @return each element is the position of the intersection, {@link cn.powernukkitx.pir.util.MathUtil#INVALID_VEC3F} element if no intersection
+     */
+    @NotNull
+    default Vector3f @NotNull [] intersectsSingleSided(@NotNull Matrix3f @NotNull [] triangle,
+                                                       @NotNull Vector3f @NotNull [] normalVector,
+                                                       @NotNull Vector3f pos,
+                                                       @NotNull Vector3f direction) {
+        var result = new Vector3f[triangle.length];
+        for (int i = 0; i < triangle.length; i++) {
+            result[i] = intersectsSingleSided(triangle[i], normalVector[i], pos, direction, new Vector3f());
+        }
+        return result;
+    }
+
+    /**
+     * find the intersections poses with given rays
+     *
+     * @param pos       the result pos
+     * @param direction the direction of the ray
+     * @param refBuffer results will be written into the elements of the buffer. Each element is the position of the intersection, {@link cn.powernukkitx.pir.util.MathUtil#INVALID_VEC3F} element if no intersection
+     */
+    default void intersectsSingleSided(@NotNull Matrix3f @NotNull [] triangle,
+                                       @NotNull Vector3f @NotNull [] normalVector,
+                                       @NotNull Vector3f pos,
+                                       @NotNull Vector3f direction,
+                                       @NotNull Vector3f @NotNull [] refBuffer) {
+        for (int i = 0; i < triangle.length; i++) {
+            intersectsSingleSided(triangle[i], normalVector[i], pos, direction, refBuffer[i]);
+        }
+    }
+
+    /**
+     * find the intersections poses with given rays
+     *
+     * @param pos       [rayIndex] the result pos
+     * @param direction [rayIndex] the direction of the ray
+     * @param refBuffer [rayIndex][triangleIndex] results will be written into the elements of the buffer. Each element is the position of the intersection, {@link cn.powernukkitx.pir.util.MathUtil#INVALID_VEC3F} element if no intersection
+     */
+    default void intersectsSingleSided(@NotNull Matrix3f @NotNull [] triangle,
+                                       @NotNull Vector3f @NotNull [] normalVector,
+                                       @NotNull Vector3f @NotNull [] pos,
+                                       @NotNull Vector3f @NotNull [] direction,
+                                       @NotNull Vector3f @NotNull [] @NotNull [] refBuffer) {
+        for (int i = 0, len1 = pos.length; i < len1; i++) {
+            for (int j = 0, len2 = triangle.length; j < len2; j++) {
+                intersectsSingleSided(triangle[j], normalVector[j], pos[i], direction[i], refBuffer[i][j]);
             }
         }
     }

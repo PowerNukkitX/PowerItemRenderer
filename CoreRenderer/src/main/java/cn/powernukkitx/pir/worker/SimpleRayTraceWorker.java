@@ -28,6 +28,16 @@ public class SimpleRayTraceWorker implements RayTraceWorker {
     private static final ThreadLocal<Map<Integer, Vector3f[]>> RayPositionsBufferCache = ThreadLocal.withInitial(WeakHashMap::new);
     private static final ThreadLocal<Map<Integer, Vector3f[]>> RayDirectionsBufferCache = ThreadLocal.withInitial(WeakHashMap::new);
 
+    public final boolean singleSided;
+
+    public SimpleRayTraceWorker(boolean singleSided) {
+        this.singleSided = singleSided;
+    }
+
+    public SimpleRayTraceWorker() {
+        this.singleSided = false;
+    }
+
     private @NotNull Vector3f @NotNull [] @NotNull [] makeIntersectionsGlobalBuffer(int raysLength, int trianglesLength) {
         var intersectionsGlobalBuffer = new Vector3f[raysLength][trianglesLength];
         for (int i = 0; i < raysLength; i++) {
@@ -96,7 +106,11 @@ public class SimpleRayTraceWorker implements RayTraceWorker {
         var normalVectors = TriangleFunctor.current().normalVector(triangleMats);
         // ray tracing
         // calculate all intersections
-        TriangleFunctor.current().intersects(triangleMats, rayPositions, rayDirections, intersectionsGlobalBuffer);
+        if (this.singleSided) {
+            TriangleFunctor.current().intersectsSingleSided(triangleMats, normalVectors, rayPositions, rayDirections, intersectionsGlobalBuffer);
+        } else {
+            TriangleFunctor.current().intersects(triangleMats, rayPositions, rayDirections, intersectionsGlobalBuffer);
+        }
         var intersectionsIdArray = new int[2];
         var intersectionCount = 0;
         for (var i = 0; i < raysLength; i++) {
