@@ -28,6 +28,7 @@ public class RenderCommand extends VanillaCommand {
         this.commandParameters.clear();
         this.commandParameters.put("default", new CommandParameter[]{
                 CommandParameter.newType("namespace", false, CommandParamType.STRING),
+                CommandParameter.newEnum("mode", true, new String[]{"image", "mcmod"}),
                 CommandParameter.newType("renderConfig", false, CommandParamType.FILE_PATH)
         });
         this.enableParamTree();
@@ -35,9 +36,12 @@ public class RenderCommand extends VanillaCommand {
 
     @Override
     public int execute(CommandSender sender, String commandLabel, Map.Entry<String, ParamList> result, CommandLogger log) {
+        // parse args
         var list = result.getValue();
         String namespace = list.getResult(0);
-        String renderConfigPath = list.getResult(1);
+        String mode = list.size() == 2 ? "image" : list.getResult(1);
+        String renderConfigPath = list.getResult(list.size() - 1);
+        // read and parse render config
         RenderingManifest renderingManifest;
         try (var reader = PNXPluginMain.GSON.newJsonReader(new FileReader(renderConfigPath))) {
             renderingManifest = RenderingManifest.fromJson(JsonParser.parseReader(reader).getAsJsonObject());
