@@ -19,9 +19,9 @@ public record JsonModelBone(
         for (var cuboidData : cubes) {
             var centerX = cuboidData.origin().x + cuboidData.size().x / 2;
             var centerZ = (cuboidData.origin().y + cuboidData.size().y / 2) - modelHeight / 2f;
-            var centerY = -(cuboidData.origin().z + cuboidData.size().z / 2);
+            var centerY = -(cuboidData.origin().z + Math.max(cuboidData.size().z, 1f) / 2);
             scene.add(new Cuboid(centerX / 16, centerY / 16, centerZ / 16,
-                    cuboidData.size().x / 16, cuboidData.size().z / 16, cuboidData.size().y / 16,
+                    cuboidData.size().x / 16, Math.max(cuboidData.size().z, 1f) / 16, cuboidData.size().y / 16,
                     texture, cuboidData.uvSet().toArray()));
         }
     }

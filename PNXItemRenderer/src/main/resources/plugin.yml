@@ -8,6 +8,6 @@ authors: ["Superice666"]
 description: An item renderer plugin for PowerNukkitX
 
 permissions:
-  pri.all:
+  pir.all:
     description: "Allows the user to control all pir commands"
     default: op

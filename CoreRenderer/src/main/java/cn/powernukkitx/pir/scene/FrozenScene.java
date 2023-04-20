@@ -35,7 +35,10 @@ public final class FrozenScene implements Scene {
                     }
                 }
                 if (obj instanceof Polyhedral polyhedral) {
-                    triangleList.addAll(Arrays.asList(polyhedral.triangles()));
+                    triangleList.addAll(Arrays.stream(polyhedral.triangles()).filter(e -> {
+                        var textureSize = e.textureSize();
+                        return textureSize.x != 0 && textureSize.y != 0;
+                    }).toList());
                 }
             } else if (obj.type() == ObjectType.LIGHT) {
                 if (obj instanceof Light light) {

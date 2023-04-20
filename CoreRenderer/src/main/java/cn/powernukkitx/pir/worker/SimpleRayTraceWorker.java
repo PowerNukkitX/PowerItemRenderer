@@ -159,7 +159,8 @@ public class SimpleRayTraceWorker implements RayTraceWorker {
                 var triangle = triangles[intersectionsIdArray[j]];
                 var uv = textureUVArray[j];
                 var textureSize = textureSizeArray[j];
-                var tmpColor = ColorUtil.toColorVectorFloat(triangle.texture()[uv.x + uv.y * textureSize.x], new Vector4f());
+                var texture = triangle.texture();
+                var tmpColor = ColorUtil.toColorVectorFloat(texture[uv.x + uv.y * textureSize.x], new Vector4f());
                 ColorUtil.setLightIntensityInHSB(tmpColor, lightIntensities[j], hsbTmpBuffer);
                 if (color == null) color = tmpColor;
                 else ColorUtil.combineRefractionColor(color, tmpColor);

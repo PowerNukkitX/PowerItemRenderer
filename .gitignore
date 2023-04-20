@@ -39,3 +39,4 @@ build/
 
 ### IDEA ###
 /.idea/
+/PNXItemRenderer/dependency-reduced-pom.xml
