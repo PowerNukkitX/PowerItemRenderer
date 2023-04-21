@@ -19,8 +19,8 @@ public final class RenderingManifest {
         if (json.has("outputPathDir")) {
             manifest.outputPathDir = json.get("outputPathDir").getAsString();
         }
-        if (json.has("modelSceneList")) {
-            var obj = json.get("modelSceneList").getAsJsonObject();
+        if (json.has("renderingTaskList")) {
+            var obj = json.get("renderingTaskList").getAsJsonObject();
             for (var entry : obj.entrySet()) {
                 var task = TaskManifest.fromJson(manifest, entry.getValue().getAsJsonObject());
                 if (task.namespaceId == null) {
