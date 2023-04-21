@@ -24,7 +24,7 @@ import cn.powernukkitx.pir.object.light.DirectionalLight;
 import cn.powernukkitx.pir.scene.SimpleScene;
 import cn.powernukkitx.pir.util.ImageUtil;
 import cn.powernukkitx.pir.worker.SimpleRayTraceWorker;
-import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.jetbrains.annotations.NotNull;
@@ -321,12 +321,13 @@ public class RenderCommand extends VanillaCommand {
                 task.data.addProperty("largeIcon", Base64.getEncoder().encodeToString(
                         outputBufferStream.toByteArray()
                 ));
+                outputBufferStream.reset();
             });
             log.addSuccess("Collected " + renderingManifest.renderingTaskList.size() + " item/block data in " +
                     (System.currentTimeMillis() - start) + "ms").output();
             start = System.currentTimeMillis();
             // write mcmod.info
-            var gson = new Gson();
+            var gson = new GsonBuilder().disableHtmlEscaping().create();
             try {
                 Files.writeString(outputDir.resolve(namespace + "-mcmod.json"),
                         renderingManifest.renderingTaskList.values().parallelStream().filter(task -> !task.isIgnored)
