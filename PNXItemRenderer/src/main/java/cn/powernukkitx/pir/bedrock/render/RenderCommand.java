@@ -139,6 +139,7 @@ public class RenderCommand extends VanillaCommand {
             var namespaceId = customBlock.getNamespaceId();
             if (namespaceId.startsWith(namespace + ":")) {
                 TaskManifest task;
+                customBlockMap.put(namespaceId, customBlock);
                 if (renderingManifest.renderingTaskList.containsKey(namespaceId)) {
                     var tmpTask = renderingManifest.renderingTaskList.get(namespaceId);
                     if (tmpTask.isIgnored) {
@@ -154,7 +155,6 @@ public class RenderCommand extends VanillaCommand {
                     task.namespaceId = namespaceId;
                     task.texturePackPath = renderingManifest.texturePackPath;
                 }
-                customBlockMap.put(namespaceId, customBlock);
 
                 var blockDefinitionNBT = customBlock.getDefinition().nbt();
 
@@ -281,6 +281,7 @@ public class RenderCommand extends VanillaCommand {
             log.addSuccess("Rendered " + largeIcons.size() + " 128x128 icons in " + (System.currentTimeMillis() - start) + "ms").output();
             start = System.currentTimeMillis();
             renderingManifest.renderingTaskList.values().parallelStream().forEach(task -> {
+                if (task.isIgnored) return;
                 if (task.isItem()) {
                     try {
                         var item = Item.fromString(task.namespaceId);
@@ -296,6 +297,8 @@ public class RenderCommand extends VanillaCommand {
                                 , task.data, block, block.getDefinition().nbt());
                     } catch (IOException e) {
                         log.addError("Error reading block definition: " + e.getMessage()).output();
+                    } catch (NullPointerException e) {
+                        log.addError("Bad block " + task.namespaceId + ": " + e.getMessage()).output();
                     }
                 }
                 var smallIcon = smallIcons.get(task.namespaceId);
