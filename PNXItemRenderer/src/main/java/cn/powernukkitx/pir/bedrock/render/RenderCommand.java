@@ -329,7 +329,7 @@ public class RenderCommand extends VanillaCommand {
             var gson = new Gson();
             try {
                 Files.writeString(outputDir.resolve(namespace + "-mcmod.json"),
-                        renderingManifest.renderingTaskList.values().parallelStream()
+                        renderingManifest.renderingTaskList.values().parallelStream().filter(task -> !task.isIgnored)
                                 .map(task -> gson.toJson(task.data)).collect(Collectors.joining("\n")));
             } catch (IOException e) {
                 log.addError("Error writing mcmod.info: " + e.getMessage()).output();
@@ -417,7 +417,7 @@ public class RenderCommand extends VanillaCommand {
                 .getInt("creative_category")).name().toLowerCase());
         data.addProperty("type", "Item");
         data.addProperty("maxStackSize", item.getMaxStackSize());
-        data.addProperty("maxDurability", item.getMaxDurability());
+        data.addProperty("maxDurability", Math.max(1, item.getMaxDurability()));
     }
 
     public static void collectBlockData(@NotNull ResourcePack resourcePack, @NotNull JsonObject data, @NotNull CustomBlock block,
