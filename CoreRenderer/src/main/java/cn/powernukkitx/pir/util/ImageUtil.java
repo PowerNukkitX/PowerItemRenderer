@@ -5,7 +5,12 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Vector2i;
 
+import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.lang.ref.WeakReference;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class ImageUtil {
@@ -150,5 +155,26 @@ public final class ImageUtil {
     @Contract(pure = true)
     public static int @NotNull [] doNothing(int[] pixels, @NotNull Vector2i size) {
         return pixels;
+    }
+
+    private static final ConcurrentHashMap<Path, WeakReference<BufferedImage>> IMAGE_CACHE = new ConcurrentHashMap<>();
+
+    public static @NotNull BufferedImage readImage(@NotNull Path path) {
+        var image = IMAGE_CACHE.computeIfAbsent(path, p -> {
+            try {
+                return new WeakReference<>(ImageIO.read(Files.newInputStream(p)));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }).get();
+        if (image == null) {
+            try {
+                image = ImageIO.read(Files.newInputStream(path));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            IMAGE_CACHE.put(path, new WeakReference<>(image));
+        }
+        return image;
     }
 }

@@ -11,15 +11,34 @@ import cn.nukkit.item.Item;
 import cn.nukkit.item.customitem.CustomItem;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.powernukkitx.pir.PNXPluginMain;
+import cn.powernukkitx.pir.bedrock.ModelParser;
 import cn.powernukkitx.pir.bedrock.resource.PIRLogger;
 import cn.powernukkitx.pir.bedrock.resource.ResourcePack;
+import cn.powernukkitx.pir.object.camera.SimpleOrthogonalCamera;
+import cn.powernukkitx.pir.object.geometry.Cube;
+import cn.powernukkitx.pir.object.light.AmbientLight;
+import cn.powernukkitx.pir.object.light.DirectionalLight;
+import cn.powernukkitx.pir.scene.SimpleScene;
+import cn.powernukkitx.pir.util.ImageUtil;
+import cn.powernukkitx.pir.worker.SimpleRayTraceWorker;
 import com.google.gson.JsonParser;
+import org.jetbrains.annotations.NotNull;
+import org.joml.Vector3f;
 
+import javax.imageio.ImageIO;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.awt.image.RenderedImage;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.util.AbstractMap;
 import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 public class RenderCommand extends VanillaCommand {
     public RenderCommand(String name) {
@@ -28,7 +47,7 @@ public class RenderCommand extends VanillaCommand {
         this.commandParameters.clear();
         this.commandParameters.put("default", new CommandParameter[]{
                 CommandParameter.newType("namespace", false, CommandParamType.STRING),
-                CommandParameter.newEnum("mode", true, new String[]{"image", "mcmod"}),
+                CommandParameter.newEnum("mode", true, new String[]{"manifest", "image", "mcmod"}),
                 CommandParameter.newType("renderConfig", false, CommandParamType.FILE_PATH)
         });
         this.enableParamTree();
@@ -39,8 +58,9 @@ public class RenderCommand extends VanillaCommand {
         // parse args
         var list = result.getValue();
         String namespace = list.getResult(0);
-        String mode = list.size() == 2 ? "image" : list.getResult(1);
+        String mode = list.size() == 2 ? "manifest" : list.getResult(1);
         String renderConfigPath = list.getResult(list.size() - 1);
+        var start = System.currentTimeMillis();
         // read and parse render config
         RenderingManifest renderingManifest;
         try (var reader = PNXPluginMain.GSON.newJsonReader(new FileReader(renderConfigPath))) {
@@ -62,6 +82,16 @@ public class RenderCommand extends VanillaCommand {
             return 0;
         }
         var pirLogger = PIRLogger.fromCommandLogger(log);
+        if (renderingManifest.texturePackPath != null) {
+            try {
+                ResourcePack.getParsedResourcePack(renderingManifest.texturePackPath, pirLogger);
+            } catch (IOException e) {
+                log.addError("Error loading texture pack: " + e.getMessage());
+                return 0;
+            }
+        }
+        log.addSuccess("Parsed render config and resource packs in " + (System.currentTimeMillis() - start) + "ms").output();
+        start = System.currentTimeMillis();
         // custom items
         for (var each : Item.getCustomItems().entrySet()) {
             if (each.getKey().startsWith(namespace + ":") && !renderingManifest.renderingTaskList.containsKey(each.getKey())) {
@@ -76,7 +106,7 @@ public class RenderCommand extends VanillaCommand {
                     try {
                         resourcePack = ResourcePack.getParsedResourcePack(task.texturePackPath, pirLogger);
                     } catch (IOException e) {
-                        throw new RuntimeException(e);
+                        throw new UncheckedIOException(e);
                     }
 
                     var textureManifest = new TextureManifest();
@@ -100,17 +130,31 @@ public class RenderCommand extends VanillaCommand {
         // custom blocks
         for (var customBlock : Block.getCustomBlockMap().values()) {
             var namespaceId = customBlock.getNamespaceId();
-            if (namespaceId.startsWith(namespace + ":") && !renderingManifest.renderingTaskList.containsKey(namespaceId)) {
+            if (namespaceId.startsWith(namespace + ":")) {
+                TaskManifest task;
+                if (renderingManifest.renderingTaskList.containsKey(namespaceId)) {
+                    var tmpTask = renderingManifest.renderingTaskList.get(namespaceId);
+                    if (tmpTask.isIgnored) {
+                        continue;
+                    }
+                    if (tmpTask.isIncomplete()) {
+                        task = tmpTask;
+                    } else {
+                        continue;
+                    }
+                } else {
+                    task = new TaskManifest();
+                    task.namespaceId = namespaceId;
+                    task.texturePackPath = renderingManifest.texturePackPath;
+                }
+
                 var blockDefinitionNBT = customBlock.getDefinition().nbt();
 
-                var task = new TaskManifest();
-                task.namespaceId = namespaceId;
-                task.texturePackPath = renderingManifest.texturePackPath;
                 ResourcePack resourcePack;
                 try {
                     resourcePack = ResourcePack.getParsedResourcePack(task.texturePackPath, pirLogger);
                 } catch (IOException e) {
-                    throw new RuntimeException(e);
+                    throw new UncheckedIOException(e);
                 }
 
                 var textureManifest = new TextureManifest();
@@ -173,12 +217,114 @@ public class RenderCommand extends VanillaCommand {
                 renderingManifest.renderingTaskList.put(namespaceId, task);
             }
         }
-        try (var writer = PNXPluginMain.GSON.newJsonWriter(Files.newBufferedWriter(outputDir.resolve("rendering_manifest.json")))) {
-            PNXPluginMain.GSON.toJson(renderingManifest, RenderingManifest.class, writer);
-        } catch (Exception e) {
-            log.addError("Error writing rendering manifest: " + e.getMessage());
-            return 0;
+        log.addSuccess("Collected " + renderingManifest.renderingTaskList.size() + " custom items and blocks in " +
+                (System.currentTimeMillis() - start) + "ms").output();
+        start = System.currentTimeMillis();
+        if ("manifest".equals(mode)) {
+            try (var writer = PNXPluginMain.GSON.newJsonWriter(Files.newBufferedWriter(outputDir.resolve("rendering_manifest.json")))) {
+                PNXPluginMain.GSON.toJson(renderingManifest, RenderingManifest.class, writer);
+            } catch (Exception e) {
+                log.addError("Error writing rendering manifest: " + e.getMessage());
+                return 0;
+            }
+        }
+        if ("image".equals(mode)) {
+            var rendered32Images = renderImage(32, 32, renderingManifest, pirLogger);
+            log.addSuccess("Rendered " + rendered32Images.size() + " 32x32 images in " + (System.currentTimeMillis() - start) + "ms").output();
+            start = System.currentTimeMillis();
+            var rendered128Images = renderImage(128, 128, renderingManifest, pirLogger);
+            log.addSuccess("Rendered " + rendered128Images.size() + " 128x128 images in " + (System.currentTimeMillis() - start) + "ms").output();
+            // parallely write them into disk
+            for (var entry : rendered128Images.entrySet()) {
+                var task = entry.getKey();
+                var image = entry.getValue();
+                var output = outputDir.resolve(task.replace(':', '-') + "-128x" + ".png");
+                try {
+                    ImageIO.write((RenderedImage) image, "png", Files.newOutputStream(output, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING));
+                } catch (IOException e) {
+                    pirLogger.warn("Error writing image: " + e.getMessage());
+                } catch (Exception e) {
+                    pirLogger.warn("Bad image: " + e.getMessage());
+                }
+            }
+            log.addSuccess("Wrote " + rendered128Images.size() + " 128x128 images in " +
+                    (System.currentTimeMillis() - start) + "ms").output();
+            start = System.currentTimeMillis();
+            for (var entry : rendered32Images.entrySet()) {
+                var task = entry.getKey();
+                var image = entry.getValue();
+                var output = outputDir.resolve(task.replace(':', '-') + "-32x" + ".png");
+                try {
+                    ImageIO.write((RenderedImage) image, "png", Files.newOutputStream(output, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING));
+                } catch (IOException e) {
+                    pirLogger.warn("Error writing image: " + e.getMessage());
+                } catch (Exception e) {
+                    pirLogger.warn("Bad image: " + e.getMessage());
+                }
+            }
+            log.addSuccess("Wrote " + rendered32Images.size() + " 32x32 images in " +
+                    (System.currentTimeMillis() - start) + "ms").output();
         }
         return 0;
+    }
+
+    public static @NotNull Map<String, Image> renderImage(int width, int height,
+                                                          @NotNull RenderingManifest manifest,
+                                                          @NotNull PIRLogger logger) {
+        var fuzzyUp = new Vector3f(0, 0, 1);
+        var direction = new Vector3f(-1f, 1f, -1f / 1.27f).normalize();
+        var camera = new SimpleOrthogonalCamera(new Vector3f(4.01f, -4f, 4f / 1.27f),
+                direction,
+                width, height, 1.62f, 1.61f,
+                direction.cross(fuzzyUp.cross(direction), new Vector3f()).normalize()
+        );
+        return manifest.renderingTaskList.values().parallelStream().map(task -> {
+            if (task.isIgnored) return null;
+            try {
+                var resourcePack = ResourcePack.getParsedResourcePack(task.texturePackPath, logger);
+                if (task.isItem()) {
+                    var texture = ImageIO.read(Files.newInputStream(resourcePack.getRealPath(task.inPackTexturePath.any)));
+                    var image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+                    var graphics = image.createGraphics();
+                    graphics.drawImage(texture, 0, 0, width, height, null);
+                    graphics.dispose();
+                    return new AbstractMap.SimpleImmutableEntry<>(task.namespaceId, image);
+                } else {
+                    var scene = new SimpleScene();
+                    var rayTraceWorker = new SimpleRayTraceWorker(task.isSingleSide);
+                    // handle scene
+                    {
+                        scene.add(new AmbientLight(task.ambientLight));
+                        scene.add(new DirectionalLight(-1f, 1.5f, -2.25f, 0.63f));
+                    }
+                    // handle model
+                    if ("unit_cube".equals(task.inPackModelPath)) {
+                        // down, north, east, south, west, up
+                        scene.add(new Cube(0, 0, 0, 1, new BufferedImage[]{
+                                ImageUtil.readImage(resourcePack.getRealPath(task.inPackTexturePath.down())),
+                                ImageUtil.readImage(resourcePack.getRealPath(task.inPackTexturePath.north())),
+                                ImageUtil.readImage(resourcePack.getRealPath(task.inPackTexturePath.west())),
+                                ImageUtil.readImage(resourcePack.getRealPath(task.inPackTexturePath.south())),
+                                ImageUtil.readImage(resourcePack.getRealPath(task.inPackTexturePath.east())),
+                                ImageUtil.readImage(resourcePack.getRealPath(task.inPackTexturePath.up()))
+                        }));
+                    } else {
+                        var modelText = Files.readString(resourcePack.getRealPath(task.inPackModelPath));
+                        var model = ModelParser.parse(modelText);
+                        var modelTexture = ImageUtil.readImage(resourcePack.getRealPath(task.inPackTexturePath.any));
+                        for (var each : model) {
+                            each.applyToScene(scene, modelTexture);
+                        }
+                    }
+                    // render
+                    var image = camera.render(scene.freeze(), rayTraceWorker);
+                    return new AbstractMap.SimpleEntry<>(task.namespaceId, image);
+                }
+            } catch (Exception e) {
+                logger.warn("Error rendering image for " + task.namespaceId + ", " + e.getMessage());
+                e.printStackTrace();
+                return null;
+            }
+        }).filter(Objects::nonNull).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 }

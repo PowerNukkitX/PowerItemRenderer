@@ -12,11 +12,16 @@ public final class TaskManifest {
     public int permutationIndex = 0;
     public boolean isSingleSide = true;
     public float ambientLight = 0.1f;
+    public boolean isIgnored = false;
     @NotNull
     public JsonObject data = new JsonObject();
 
     public boolean isItem() {
         return inPackModelPath == null;
+    }
+
+    public boolean isIncomplete() {
+        return namespaceId == null || texturePackPath == null || inPackTexturePath == null;
     }
 
     public static @NotNull TaskManifest fromJson(@Nullable RenderingManifest renderingManifest, @NotNull JsonObject json) {
@@ -43,6 +48,9 @@ public final class TaskManifest {
         }
         if (json.has("ambientLight")) {
             manifest.ambientLight = json.get("ambientLight").getAsFloat();
+        }
+        if (json.has("isIgnored")) {
+            manifest.isIgnored = json.get("isIgnored").getAsBoolean();
         }
         if (json.has("data")) {
             manifest.data = json.get("data").getAsJsonObject();

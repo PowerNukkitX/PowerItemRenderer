@@ -13,12 +13,12 @@ public interface PIRLogger {
     static @NotNull PIRLogger fromCommandLogger(CommandLogger commandLogger) {
         return new PIRLogger() {
             @Override
-            public void info(String message) {
+            public synchronized void info(String message) {
                 commandLogger.addSuccess(message).output();
             }
 
             @Override
-            public void warn(String message) {
+            public synchronized void warn(String message) {
                 commandLogger.addError(message).output();
             }
         };
