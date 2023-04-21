@@ -1,14 +1,17 @@
 package cn.powernukkitx.pir.bedrock.render;
 
 import cn.nukkit.block.Block;
+import cn.nukkit.block.customblock.CustomBlock;
 import cn.nukkit.command.CommandSender;
 import cn.nukkit.command.data.CommandParamType;
 import cn.nukkit.command.data.CommandParameter;
 import cn.nukkit.command.defaults.VanillaCommand;
 import cn.nukkit.command.tree.ParamList;
 import cn.nukkit.command.utils.CommandLogger;
+import cn.nukkit.inventory.ItemTag;
 import cn.nukkit.item.Item;
 import cn.nukkit.item.customitem.CustomItem;
+import cn.nukkit.item.customitem.data.ItemCreativeCategory;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.powernukkitx.pir.PNXPluginMain;
 import cn.powernukkitx.pir.bedrock.ModelParser;
@@ -21,26 +24,28 @@ import cn.powernukkitx.pir.object.light.DirectionalLight;
 import cn.powernukkitx.pir.scene.SimpleScene;
 import cn.powernukkitx.pir.util.ImageUtil;
 import cn.powernukkitx.pir.worker.SimpleRayTraceWorker;
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.jetbrains.annotations.NotNull;
 import org.joml.Vector3f;
 
 import javax.imageio.ImageIO;
-import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.RenderedImage;
+import java.io.ByteArrayOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.util.AbstractMap;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class RenderCommand extends VanillaCommand {
+    private static final ThreadLocal<ByteArrayOutputStream> BYTE_ARRAY_OUTPUT_STREAM = ThreadLocal.withInitial(ByteArrayOutputStream::new);
+
     public RenderCommand(String name) {
         super(name, "Render items.");
         this.setPermission("pir.all");
@@ -128,6 +133,8 @@ public class RenderCommand extends VanillaCommand {
             }
         }
         // custom blocks
+        var customBlocks = Block.getCustomBlockMap().values();
+        var customBlockMap = new HashMap<String, CustomBlock>(customBlocks.size());
         for (var customBlock : Block.getCustomBlockMap().values()) {
             var namespaceId = customBlock.getNamespaceId();
             if (namespaceId.startsWith(namespace + ":")) {
@@ -147,6 +154,7 @@ public class RenderCommand extends VanillaCommand {
                     task.namespaceId = namespaceId;
                     task.texturePackPath = renderingManifest.texturePackPath;
                 }
+                customBlockMap.put(namespaceId, customBlock);
 
                 var blockDefinitionNBT = customBlock.getDefinition().nbt();
 
@@ -220,6 +228,7 @@ public class RenderCommand extends VanillaCommand {
         log.addSuccess("Collected " + renderingManifest.renderingTaskList.size() + " custom items and blocks in " +
                 (System.currentTimeMillis() - start) + "ms").output();
         start = System.currentTimeMillis();
+        // render and save
         if ("manifest".equals(mode)) {
             try (var writer = PNXPluginMain.GSON.newJsonWriter(Files.newBufferedWriter(outputDir.resolve("rendering_manifest.json")))) {
                 PNXPluginMain.GSON.toJson(renderingManifest, RenderingManifest.class, writer);
@@ -227,20 +236,20 @@ public class RenderCommand extends VanillaCommand {
                 log.addError("Error writing rendering manifest: " + e.getMessage());
                 return 0;
             }
-        }
-        if ("image".equals(mode)) {
+        } else if ("image".equals(mode)) {
             var rendered32Images = renderImage(32, 32, renderingManifest, pirLogger);
             log.addSuccess("Rendered " + rendered32Images.size() + " 32x32 images in " + (System.currentTimeMillis() - start) + "ms").output();
             start = System.currentTimeMillis();
             var rendered128Images = renderImage(128, 128, renderingManifest, pirLogger);
             log.addSuccess("Rendered " + rendered128Images.size() + " 128x128 images in " + (System.currentTimeMillis() - start) + "ms").output();
+            start = System.currentTimeMillis();
             // parallely write them into disk
             for (var entry : rendered128Images.entrySet()) {
                 var task = entry.getKey();
                 var image = entry.getValue();
                 var output = outputDir.resolve(task.replace(':', '-') + "-128x" + ".png");
                 try {
-                    ImageIO.write((RenderedImage) image, "png", Files.newOutputStream(output, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING));
+                    ImageIO.write(image, "png", Files.newOutputStream(output, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING));
                 } catch (IOException e) {
                     pirLogger.warn("Error writing image: " + e.getMessage());
                 } catch (Exception e) {
@@ -255,7 +264,7 @@ public class RenderCommand extends VanillaCommand {
                 var image = entry.getValue();
                 var output = outputDir.resolve(task.replace(':', '-') + "-32x" + ".png");
                 try {
-                    ImageIO.write((RenderedImage) image, "png", Files.newOutputStream(output, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING));
+                    ImageIO.write(image, "png", Files.newOutputStream(output, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING));
                 } catch (IOException e) {
                     pirLogger.warn("Error writing image: " + e.getMessage());
                 } catch (Exception e) {
@@ -264,13 +273,72 @@ public class RenderCommand extends VanillaCommand {
             }
             log.addSuccess("Wrote " + rendered32Images.size() + " 32x32 images in " +
                     (System.currentTimeMillis() - start) + "ms").output();
+        } else if ("mcmod".equals(mode)) {
+            var smallIcons = renderImage(32, 32, renderingManifest, pirLogger);
+            log.addSuccess("Rendered " + smallIcons.size() + " 32x32 icons in " + (System.currentTimeMillis() - start) + "ms").output();
+            start = System.currentTimeMillis();
+            var largeIcons = renderImage(128, 128, renderingManifest, pirLogger);
+            log.addSuccess("Rendered " + largeIcons.size() + " 128x128 icons in " + (System.currentTimeMillis() - start) + "ms").output();
+            start = System.currentTimeMillis();
+            renderingManifest.renderingTaskList.values().parallelStream().forEach(task -> {
+                if (task.isItem()) {
+                    try {
+                        var item = Item.fromString(task.namespaceId);
+                        collectItemData(ResourcePack.getParsedResourcePack(task.texturePackPath, pirLogger)
+                                , task.data, item, ((CustomItem) item).getDefinition().nbt());
+                    } catch (IOException e) {
+                        log.addError("Error reading item definition: " + e.getMessage()).output();
+                    }
+                } else {
+                    try {
+                        var block = customBlockMap.get(task.namespaceId);
+                        collectBlockData(ResourcePack.getParsedResourcePack(task.texturePackPath, pirLogger)
+                                , task.data, block, block.getDefinition().nbt());
+                    } catch (IOException e) {
+                        log.addError("Error reading block definition: " + e.getMessage()).output();
+                    }
+                }
+                var smallIcon = smallIcons.get(task.namespaceId);
+                var largeIcon = largeIcons.get(task.namespaceId);
+                var outputBufferStream = BYTE_ARRAY_OUTPUT_STREAM.get();
+                try {
+                    ImageIO.write(smallIcon, "png", outputBufferStream);
+                } catch (IOException e) {
+                    log.addError("Error writing small icon: " + e.getMessage()).output();
+                }
+                task.data.addProperty("smallIcon", Base64.getEncoder().encodeToString(
+                        outputBufferStream.toByteArray()
+                ));
+                outputBufferStream.reset();
+                try {
+                    ImageIO.write(largeIcon, "png", outputBufferStream);
+                } catch (IOException e) {
+                    log.addError("Error writing large icon: " + e.getMessage()).output();
+                }
+                task.data.addProperty("largeIcon", Base64.getEncoder().encodeToString(
+                        outputBufferStream.toByteArray()
+                ));
+            });
+            log.addSuccess("Collected " + renderingManifest.renderingTaskList.size() + " item/block data in " +
+                    (System.currentTimeMillis() - start) + "ms").output();
+            start = System.currentTimeMillis();
+            // write mcmod.info
+            var gson = new Gson();
+            try {
+                Files.writeString(outputDir.resolve(namespace + "-mcmod.json"),
+                        renderingManifest.renderingTaskList.values().parallelStream()
+                                .map(task -> gson.toJson(task.data)).collect(Collectors.joining("\n")));
+            } catch (IOException e) {
+                log.addError("Error writing mcmod.info: " + e.getMessage()).output();
+            }
+            log.addSuccess("Wrote mcmod.info in " + (System.currentTimeMillis() - start) + "ms").output();
         }
         return 0;
     }
 
-    public static @NotNull Map<String, Image> renderImage(int width, int height,
-                                                          @NotNull RenderingManifest manifest,
-                                                          @NotNull PIRLogger logger) {
+    public static @NotNull Map<String, RenderedImage> renderImage(int width, int height,
+                                                                  @NotNull RenderingManifest manifest,
+                                                                  @NotNull PIRLogger logger) {
         var fuzzyUp = new Vector3f(0, 0, 1);
         var direction = new Vector3f(-1f, 1f, -1f / 1.27f).normalize();
         var camera = new SimpleOrthogonalCamera(new Vector3f(4.01f, -4f, 4f / 1.27f),
@@ -326,5 +394,45 @@ public class RenderCommand extends VanillaCommand {
                 return null;
             }
         }).filter(Objects::nonNull).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
+    public static void collectItemData(@NotNull ResourcePack resourcePack, @NotNull JsonObject data, @NotNull Item item,
+                                       @NotNull CompoundTag nbt) {
+        var namespaceId = item.getNamespaceId();
+        data.addProperty("name", resourcePack.getLanguageText("zh_CN", "item." + namespaceId));
+        data.addProperty("englishName", resourcePack.getLanguageText("en_US", "item." + namespaceId));
+        data.addProperty("registerName", namespaceId);
+        data.addProperty("metadata", item.hasMeta() ? item.getDamage() : 0);
+        var tags = ItemTag.getTags(namespaceId);
+        if (tags != null) {
+            data.addProperty("OredictList", "[" + String.join(", ", tags) + "]");
+        } else {
+            data.addProperty("OredictList", "[]");
+        }
+        data.addProperty("CreativeTabName", ItemCreativeCategory.fromID(nbt.getCompound("components")
+                .getCompound("item_properties")
+                .getInt("creative_category")).name().toLowerCase());
+        data.addProperty("type", "Item");
+        data.addProperty("maxStackSize", item.getMaxStackSize());
+        data.addProperty("maxDurability", item.getMaxDurability());
+    }
+
+    public static void collectBlockData(@NotNull ResourcePack resourcePack, @NotNull JsonObject data, @NotNull CustomBlock block,
+                                        @NotNull CompoundTag nbt) {
+        var namespaceId = block.getNamespaceId();
+        data.addProperty("name", resourcePack.getLanguageText("zh_CN", "tile." + namespaceId + ".name"));
+        data.addProperty("englishName", resourcePack.getLanguageText("en_US", "tile." + namespaceId + ".name"));
+        data.addProperty("registerName", namespaceId);
+        data.addProperty("metadata", 0);
+        var tags = ItemTag.getTags(namespaceId);
+        if (tags != null) {
+            data.addProperty("OredictList", "[" + String.join(", ", tags) + "]");
+        } else {
+            data.addProperty("OredictList", "[]");
+        }
+        data.addProperty("CreativeTabName", nbt.getCompound("menu_category").getString("category"));
+        data.addProperty("type", "Block");
+        data.addProperty("maxStackSize", block instanceof Block b ? b.getItemMaxStackSize() : 64);
+        data.addProperty("maxDurability", 1);
     }
 }

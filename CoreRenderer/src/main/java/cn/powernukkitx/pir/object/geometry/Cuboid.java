@@ -161,9 +161,6 @@ public record Cuboid(
         } else {
             result = ImageUtil.slice(texture, uvDetail.x, uvDetail.y, uvDetail.w, uvDetail.h);
         }
-//        if (index == 1 || index == 5) {
-//            result = ImageUtil.centralSymmetry(result, uvDetail.w, uvDetail.h);
-//        }
         return result;
     }
 }

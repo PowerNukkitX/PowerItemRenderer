@@ -1,13 +1,13 @@
 package cn.powernukkitx.pir.object.camera;
 
-import cn.powernukkitx.pir.object.SceneObject;
 import cn.powernukkitx.pir.object.ObjectType;
+import cn.powernukkitx.pir.object.SceneObject;
 import cn.powernukkitx.pir.scene.Scene;
 import cn.powernukkitx.pir.worker.RayTraceWorker;
 import org.jetbrains.annotations.NotNull;
 import org.joml.Vector3f;
 
-import java.awt.*;
+import java.awt.image.RenderedImage;
 
 public interface Camera extends SceneObject {
     /**
@@ -53,7 +53,7 @@ public interface Camera extends SceneObject {
      * @param rayTraceWorker The RayTraceWorker to use
      * @return The rendered image
      */
-    @NotNull Image render(@NotNull Scene scene, @NotNull RayTraceWorker rayTraceWorker);
+    @NotNull RenderedImage render(@NotNull Scene scene, @NotNull RayTraceWorker rayTraceWorker);
 
     @Override
     @NotNull default ObjectType type() {

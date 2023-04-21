@@ -6,8 +6,8 @@ import cn.powernukkitx.pir.worker.RayTraceWorker;
 import org.jetbrains.annotations.NotNull;
 import org.joml.Vector3f;
 
-import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.awt.image.RenderedImage;
 import java.util.Objects;
 
 public final class SimpleOrthogonalCamera implements OrthogonalCamera {
@@ -68,7 +68,7 @@ public final class SimpleOrthogonalCamera implements OrthogonalCamera {
     }
 
     @Override
-    public @NotNull Image render(@NotNull Scene scene, @NotNull RayTraceWorker rayTraceWorker) {
+    public @NotNull RenderedImage render(@NotNull Scene scene, @NotNull RayTraceWorker rayTraceWorker) {
         var colors = scene.rayTrace(rayPositions, rayDirections, rayTraceWorker);
         var image = new BufferedImage(pixelWidth, pixelHeight, BufferedImage.TYPE_INT_ARGB);
         for (int y = 0; y < pixelHeight; y++) {
