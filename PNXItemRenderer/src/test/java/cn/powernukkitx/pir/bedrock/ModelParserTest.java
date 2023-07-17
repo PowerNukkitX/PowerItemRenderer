@@ -124,6 +124,62 @@ public class ModelParserTest {
         if (file.exists()) {
             file.delete();
         }
-        ImageIO.write((RenderedImage) result, "png", file);
+        ImageIO.write(result, "png", file);
+    }
+
+    @Test
+    public void testWindmill1() throws IOException {
+        var fuzzyUp = new Vector3f(0, 0, 1);
+        var direction = new Vector3f(1f, 1f, -1f / 1.27f).normalize();
+        var camera = new SimpleOrthogonalCamera(new Vector3f(-4.01f, -4f, 4f / 1.27f),
+                direction,
+                256, 256, 1.62f * 2, 1.61f * 2,
+                direction.cross(fuzzyUp.cross(direction), new Vector3f()).normalize()
+        );
+        var tmpScene = new SimpleScene();
+        tmpScene.add(new AmbientLight(0.3f));
+        tmpScene.add(new DirectionalLight(-1.5f, -1f, -2.25f, 0.63f));
+        var jsonModels = ModelParser.parse(Objects.requireNonNull(
+                ModelParserTest.class.getResourceAsStream("/windmill.geo.json")));
+        for (var each : jsonModels) {
+            each.applyToScene(tmpScene, ImageIO.read(Objects.requireNonNull(
+                    ModelParserTest.class.getResourceAsStream("/wood_windmill.png"))));
+        }
+        var scene = tmpScene.freeze();
+        var worker = new SimpleRayTraceWorker(false);
+        var result = camera.render(scene, worker);
+        var file = new File("target", "wood_windmill.png");
+        if (file.exists()) {
+            file.delete();
+        }
+        ImageIO.write(result, "png", file);
+    }
+
+    @Test
+    public void testWindmill2() throws IOException {
+        var fuzzyUp = new Vector3f(0, 0, 1);
+        var direction = new Vector3f(1f, 1f, -1f / 1.27f).normalize();
+        var camera = new SimpleOrthogonalCamera(new Vector3f(-4.01f, -4f, 4f / 1.27f),
+                direction,
+                256, 256, 1.62f * 2, 1.61f * 2,
+                direction.cross(fuzzyUp.cross(direction), new Vector3f()).normalize()
+        );
+        var tmpScene = new SimpleScene();
+        tmpScene.add(new AmbientLight(0.3f));
+        tmpScene.add(new DirectionalLight(-1.5f, -1f, -2.25f, 0.63f));
+        var jsonModels = ModelParser.parse(Objects.requireNonNull(
+                ModelParserTest.class.getResourceAsStream("/windmill.geo.json")));
+        for (var each : jsonModels) {
+            each.applyToScene(tmpScene, ImageIO.read(Objects.requireNonNull(
+                    ModelParserTest.class.getResourceAsStream("/antiseptic_wood_windmill.png"))));
+        }
+        var scene = tmpScene.freeze();
+        var worker = new SimpleRayTraceWorker(false);
+        var result = camera.render(scene, worker);
+        var file = new File("target", "antiseptic_wood_windmill.png");
+        if (file.exists()) {
+            file.delete();
+        }
+        ImageIO.write(result, "png", file);
     }
 }

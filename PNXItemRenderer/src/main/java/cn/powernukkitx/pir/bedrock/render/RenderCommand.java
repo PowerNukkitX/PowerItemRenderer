@@ -211,7 +211,7 @@ public class RenderCommand extends VanillaCommand {
                 if (blockDefinitionNBT.getCompound("components").contains("minecraft:unit_cube")) {
                     task.inPackModelPath = "unit_cube";
                 } else if (blockDefinitionNBT.getCompound("components").contains("minecraft:geometry")) {
-                    var modelId = blockDefinitionNBT.getCompound("components").getCompound("minecraft:geometry").getString("value");
+                    var modelId = blockDefinitionNBT.getCompound("components").getCompound("minecraft:geometry").getString("identifier");
                     task.inPackModelPath = resourcePack.getGeometryPath(modelId);
                     if (task.inPackModelPath == null) {
                         pirLogger.warn("Model of block " + namespaceId + " not found: " + modelId);
